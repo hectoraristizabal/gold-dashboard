@@ -7,6 +7,7 @@ import pytz
 import time
 
 TROY_OZ_GRAMS = 31.1035  # 1 onza troy = 31.1035 gramos
+TZ_COL = pytz.timezone('America/Bogota')  # UTC-5, sin cambio de horario
 
 st.set_page_config(
     page_title="Gold Macro Dashboard",
@@ -46,7 +47,7 @@ HEADERS = {
 def is_gold_market_open():
     """El mercado del oro opera Dom 6pm ET a Vie 5pm ET."""
     et = pytz.timezone("America/New_York")
-    now = datetime.now(et)
+    now = datetime.now(pytz.utc).astimezone(et)
     wd = now.weekday()  # 0=Lun, 6=Dom
     h  = now.hour + now.minute / 60
     if wd == 5:                          # Sábado: cerrado
@@ -56,6 +57,11 @@ def is_gold_market_open():
     if wd == 4 and h >= 17:             # Viernes después de 5pm: cerrado
         return False
     return True
+
+
+def now_colombia():
+    """Hora actual en Colombia (UTC-5, sin horario de verano)."""
+    return datetime.now(pytz.utc).astimezone(TZ_COL)
 
 def get_refresh_seconds():
     """2 min si mercado abierto, 30 min si cerrado — optimiza los 800 req/día."""
@@ -131,8 +137,13 @@ def get_gold_history_period(period="3M"):
                     try:
                         # Twelve Data devuelve "YYYY-MM-DD" para 1day, "YYYY-MM-DD HH:MM:SS" para intraday
                         raw = v["datetime"]
-                        dt  = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S") if " " in raw else datetime.strptime(raw, "%Y-%m-%d")
-                        if period == "YTD" and dt < year_start:
+                        if " " in raw:
+                            # Intraday: Twelve Data devuelve hora en UTC → convertir a Colombia
+                            dt_utc = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=pytz.utc)
+                            dt = dt_utc.astimezone(TZ_COL)
+                        else:
+                            dt = datetime.strptime(raw, "%Y-%m-%d")
+                        if period == "YTD" and dt.replace(tzinfo=None) < year_start:
                             continue
                         results.append({"date": dt.strftime(fmt), "price": float(v["close"]), "dt": dt})
                     except:
@@ -363,7 +374,7 @@ with col_btn:
 with col_ts:
     st.markdown(
         f"<div style='font-size:12px;color:#aaa;padding-top:8px'>"
-        f"Última actualización: {datetime.now().strftime('%H:%M:%S')} · "
+        f"Última actualización: {now_colombia().strftime('%H:%M:%S')} (hora Colombia) · "
         f"Fuente principal: Twelve Data (XAU/USD spot real)</div>",
         unsafe_allow_html=True
     )
