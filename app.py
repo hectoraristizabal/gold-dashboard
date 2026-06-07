@@ -404,7 +404,9 @@ with c4:
 
 with c5:
     if brent_price:
-        delta_b = f"{brent_data['change']:+.2f} ({brent_data['change_pct']:+.2f}%)" if brent_data.get("change") is not None else None
+        b_ch  = brent_data.get("change")
+        b_chp = brent_data.get("change_pct")
+        delta_b = f"{b_ch:+.2f} ({b_chp:+.2f}%)" if (b_ch is not None and b_chp is not None) else None
         st.metric("🛢 Brent — Petróleo", f"${brent_price:,.2f}", delta=delta_b)
         st.caption("USD por barril")
     else:
@@ -412,7 +414,9 @@ with c5:
 
 with c6:
     if usdcop:
-        delta_cop = f"{usdcop_data['change']:+.2f} ({usdcop_data['change_pct']:+.2f}%)" if usdcop_data.get("change") is not None else None
+        c_ch  = usdcop_data.get("change")
+        c_chp = usdcop_data.get("change_pct")
+        delta_cop = f"{c_ch:+.2f} ({c_chp:+.2f}%)" if (c_ch is not None and c_chp is not None) else None
         st.metric("🇨🇴 USD/COP", f"{usdcop:,.1f}", delta=delta_cop)
         if gold_cop:
             st.caption(f"Oro hoy: ${gold_cop:,} COP/oz")
