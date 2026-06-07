@@ -156,6 +156,89 @@ def get_yahoo_quote(symbol):
             return r.json()["chart"]["result"][0]["meta"].get("regularMarketPrice")
     except: pass
     return None
+@st.cache_data(ttl=120)
+def get_brent_price():
+    """Precio del Brent — intenta Twelve Data luego Yahoo Finance."""
+    # Twelve Data
+    try:
+        r = requests.get(
+            f"https://api.twelvedata.com/price?symbol=BRENT/USD&apikey={TWELVE_DATA_KEY}",
+            timeout=10
+        )
+        if r.status_code == 200:
+            d = r.json()
+            if d.get("price"):
+                price = float(d["price"])
+                r2 = requests.get(
+                    f"https://api.twelvedata.com/quote?symbol=BRENT/USD&apikey={TWELVE_DATA_KEY}",
+                    timeout=10
+                )
+                change, change_pct = None, None
+                if r2.status_code == 200:
+                    q = r2.json()
+                    if not q.get("code"):
+                        change     = float(q.get("change", 0) or 0)
+                        change_pct = float(q.get("percent_change", 0) or 0)
+                return {"price": price, "change": change, "change_pct": change_pct, "source": "Twelve Data"}
+    except:
+        pass
+    # Yahoo Finance fallback
+    try:
+        r = requests.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/BZ%3DF?interval=1d&range=2d",
+            headers=HEADERS, timeout=10
+        )
+        if r.status_code == 200:
+            meta  = r.json()["chart"]["result"][0]["meta"]
+            price = meta.get("regularMarketPrice")
+            prev  = meta.get("chartPreviousClose")
+            if price:
+                ch  = round(price - prev, 2) if prev else None
+                chp = round(ch / prev * 100, 2) if (ch and prev) else None
+                return {"price": price, "change": ch, "change_pct": chp, "source": "Yahoo (BZ=F)"}
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=120)
+def get_usdcop():
+    """Tasa de cambio USD/COP desde Yahoo Finance."""
+    try:
+        r = requests.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/USDCOP%3DX?interval=1d&range=2d",
+            headers=HEADERS, timeout=10
+        )
+        if r.status_code == 200:
+            meta  = r.json()["chart"]["result"][0]["meta"]
+            price = meta.get("regularMarketPrice")
+            prev  = meta.get("chartPreviousClose")
+            if price:
+                ch  = round(price - prev, 2) if prev else None
+                chp = round(ch / prev * 100, 2) if (ch and prev) else None
+                return {"price": price, "change": ch, "change_pct": chp}
+    except:
+        pass
+    return None
+
+def get_brent_gold_correlation(brent_price, gold_price):
+    """Señal simple de correlación basada en movimiento del día."""
+    if brent_price is None or gold_price is None:
+        return "neutral", "Sin datos suficientes"
+    brent_ch = brent_price.get("change_pct") or 0
+    gold_ch  = gold_price.get("change_pct") or 0
+    if abs(brent_ch) < 0.1 and abs(gold_ch) < 0.1:
+        return "neutral", "Ambos estables hoy"
+    if brent_ch > 0.2 and gold_ch < -0.1:
+        return "bearish", "Brent sube · Oro cae → correlación inversa activa"
+    if brent_ch < -0.2 and gold_ch > 0.1:
+        return "bullish", "Brent cae · Oro sube → correlación inversa activa"
+    if brent_ch > 0.2 and gold_ch > 0.1:
+        return "neutral", "Ambos suben → posible pánico geopolítico"
+    if brent_ch < -0.2 and gold_ch < -0.1:
+        return "neutral", "Ambos caen → presión general de mercado"
+    return "neutral", "Sin correlación clara hoy"
+
+
 
 # ── Señales y gauge ───────────────────────────────────────────────────────────
 def get_signal(ind, val):
@@ -273,12 +356,17 @@ with st.spinner("Cargando datos del mercado..."):
     vix,  _            = get_fred_value("VIXCLS")
     if dxy is None:  dxy = get_yahoo_quote("DX-Y.NYB")
     if vix is None:  vix = get_yahoo_quote("%5EVIX")
+    brent_data = get_brent_price()
+    usdcop_data = get_usdcop()
 
-gold_price = gold_data["price"] if gold_data else None
-real_yield = round(yield10y - breakeven, 2) if (yield10y and breakeven) else None
+gold_price  = gold_data["price"]    if gold_data    else None
+real_yield  = round(yield10y - breakeven, 2) if (yield10y and breakeven) else None
+brent_price = brent_data["price"]  if brent_data  else None
+usdcop      = usdcop_data["price"] if usdcop_data else None
+gold_cop    = round(gold_price * usdcop) if (gold_price and usdcop) else None
 
 # ── MÉTRICAS ──────────────────────────────────────────────────────────────────
-c1,c2,c3,c4 = st.columns(4)
+c1,c2,c3,c4,c5,c6 = st.columns(6)
 
 with c1:
     if gold_price:
@@ -314,6 +402,23 @@ with c4:
     else:
         st.metric("😰 VIX — Miedo del mercado", "Sin dato")
 
+with c5:
+    if brent_price:
+        delta_b = f"{brent_data['change']:+.2f} ({brent_data['change_pct']:+.2f}%)" if brent_data.get("change") is not None else None
+        st.metric("🛢 Brent — Petróleo", f"${brent_price:,.2f}", delta=delta_b)
+        st.caption("USD por barril")
+    else:
+        st.metric("🛢 Brent — Petróleo", "Sin dato")
+
+with c6:
+    if usdcop:
+        delta_cop = f"{usdcop_data['change']:+.2f} ({usdcop_data['change_pct']:+.2f}%)" if usdcop_data.get("change") is not None else None
+        st.metric("🇨🇴 USD/COP", f"{usdcop:,.1f}", delta=delta_cop)
+        if gold_cop:
+            st.caption(f"Oro hoy: ${gold_cop:,} COP/oz")
+    else:
+        st.metric("🇨🇴 USD/COP", "Sin dato")
+
 st.divider()
 
 # ── GAUGE + SEÑALES ───────────────────────────────────────────────────────────
@@ -336,6 +441,13 @@ with col_s:
     render_signal("📈 Tasa de interés real EE.UU.", "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo", f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
     render_signal("😰 VIX — Miedo en los mercados", "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro",                    f"{vix:.2f}"          if vix        else None, s3, l3)
     render_signal("🔥 Inflación esperada EE.UU.",  "qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección", f"{breakeven:.2f}%"   if breakeven  else None, s4, l4)
+
+    st.markdown("---")
+    st.markdown("**🛢 Petróleo Brent vs Oro**")
+    st.caption("Relación de comportamiento entre ambos activos en el día de hoy")
+    bcor_sig, bcor_label = get_brent_gold_correlation(brent_data, gold_data)
+    brent_val = f"${brent_price:,.2f}/barril" if brent_price else None
+    render_signal("🛢 Brent — Crudo del Mar del Norte", "precio referencia mundial del petróleo. Con tensión en Medio Oriente, suele moverse inverso al oro", brent_val, bcor_sig, bcor_label)
 
 st.divider()
 
@@ -384,6 +496,18 @@ Mide el nivel de nerviosismo o pánico en los mercados financieros mundiales.
 Lo que los mercados esperan que sea la inflación en EE.UU. en la próxima década.
 - **Alta (> 2.5%):** el oro es el refugio clásico contra la inflación → precio sube
 - **Baja (< 2%):** menos urgencia de protegerse → menor demanda de oro
+
+---
+
+### 🛢 Brent — Petróleo crudo
+Precio de referencia mundial del crudo, producido en el Mar del Norte.
+- En contexto de tensión en Medio Oriente / Estrecho de Ormuz: cuando el Brent sube por riesgo geopolítico energético (no financiero), el oro tiende a bajar — los capitales rotan hacia energía
+- Cuando hay pánico financiero real: ambos pueden subir juntos como activos de crisis
+
+### 🇨🇴 USD/COP — Dólar vs Peso colombiano
+Cuántos pesos colombianos vale 1 dólar estadounidense.
+- Si el dólar sube frente al peso: el oro en COP se encarece más de lo que sube en USD
+- Abajo del precio aparece el **valor de la onza de oro en pesos** — calculado automáticamente
 
 ---
 
