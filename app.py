@@ -178,10 +178,10 @@ def calc_score(dxy, ry, vix, be):
     if be  is not None: t+=20; s+=20 if be>2.5   else 10 if be>2.0   else 0
     return round(s/t*100) if t>0 else 50
 
-def render_signal(name, val_str, sig, label):
+def render_signal(name, desc, val_str, sig, label):
     st.markdown(f"""
     <div class="signal-{sig}">
-      <div class="signal-name">{name}</div>
+      <div class="signal-name">{name} <span style='font-weight:normal;color:#999'>· {desc}</span></div>
       <div class="signal-val">{val_str or "—"}</div>
       <div class="signal-label {sig}-text">{label}</div>
     </div>""", unsafe_allow_html=True)
@@ -244,8 +244,7 @@ estado_mercado = (
     else '<span class="market-closed">🔴 Mercado cerrado</span>'
 )
 st.markdown(
-    f'<div class="sub-header">XAU/USD spot · DXY · Yield real 10Y · VIX · {estado_mercado} '
-    f'· Refresca cada <b>{refresh_min} min</b></div>',
+    f'<div class="sub-header">Precio del oro al instante + 4 indicadores que anticipan su movimiento · {estado_mercado} · Refresca cada <b>{refresh_min} min</b></div>',
     unsafe_allow_html=True
 )
 
@@ -295,25 +294,25 @@ with c1:
 with c2:
     if dxy:
         lbl = "Dólar débil ▼" if dxy<100 else "Neutral →" if dxy<104 else "Dólar fuerte ▲"
-        st.metric("💵 DXY — Índice dólar", f"{dxy:.2f}", delta=lbl, delta_color="off")
+        st.metric("💵 DXY — Fuerza del dólar", f"{dxy:.2f}", delta=lbl, delta_color="off")
     else:
-        st.metric("💵 DXY — Índice dólar", "Sin dato")
+        st.metric("💵 DXY — Fuerza del dólar", "Sin dato")
 
 with c3:
     if real_yield is not None:
-        st.metric("📈 Yield real 10Y", f"{real_yield:.2f}%",
-                  delta=f"Nominal {yield10y:.2f}% · BE {breakeven:.2f}%", delta_color="off")
+        st.metric("📈 Tasa interés real EE.UU.", f"{real_yield:.2f}%",
+                  delta=f"Tasa nominal {yield10y:.2f}% · Inflación esperada {breakeven:.2f}%", delta_color="off")
     elif yield10y:
-        st.metric("📈 Yield 10Y", f"{yield10y:.2f}%", delta="Breakeven no disponible", delta_color="off")
+        st.metric("📈 Tasa interés real EE.UU.", f"{yield10y:.2f}%", delta="Inflación esperada no disponible", delta_color="off")
     else:
-        st.metric("📈 Yield real 10Y", "Sin dato")
+        st.metric("📈 Tasa interés real EE.UU.", "Sin dato")
 
 with c4:
     if vix:
         nivel = "⚠ Pánico" if vix>30 else "Elevado" if vix>20 else "Bajo"
-        st.metric("🌡 VIX — Volatilidad", f"{vix:.2f}", delta=nivel, delta_color="off")
+        st.metric("😰 VIX — Miedo del mercado", f"{vix:.2f}", delta=nivel, delta_color="off")
     else:
-        st.metric("🌡 VIX — Volatilidad", "Sin dato")
+        st.metric("😰 VIX — Miedo del mercado", "Sin dato")
 
 st.divider()
 
@@ -321,20 +320,22 @@ st.divider()
 col_g, col_s = st.columns([1,1])
 
 with col_g:
-    st.markdown("**Señal general del oro**")
+    st.markdown("**Indicador de condiciones macro para el oro**")
+    st.caption("Puntaje de 0 a 100 que resume qué tan favorables son los indicadores económicos para que el precio del oro suba. 0 = todo en contra · 100 = todo a favor")
     score = calc_score(dxy, real_yield, vix, breakeven)
     st.plotly_chart(make_gauge(score), use_container_width=True, config={"displayModeBar":False})
 
 with col_s:
-    st.markdown("**Señales por indicador**")
+    st.markdown("**¿Qué dice cada indicador?**")
+    st.caption("Cada uno influye en el precio del oro de diferente forma. Verde = favorece subida · Rojo = favorece bajada · Naranja = neutral")
     s1,l1 = get_signal("dxy",        dxy)
     s2,l2 = get_signal("real_yield", real_yield)
     s3,l3 = get_signal("vix",        vix)
     s4,l4 = get_signal("breakeven",  breakeven)
-    render_signal("DXY — Índice del dólar",       f"{dxy:.2f}"          if dxy        else None, s1, l1)
-    render_signal("Yield real 10Y (TIPS)",         f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
-    render_signal("VIX — Volatilidad de mercado",  f"{vix:.2f}"          if vix        else None, s3, l3)
-    render_signal("Breakeven inflación 10Y",       f"{breakeven:.2f}%"   if breakeven  else None, s4, l4)
+    render_signal("💵 DXY — Fuerza del dólar",    "cuando el dólar sube, el oro baja (y viceversa)",   f"{dxy:.2f}"          if dxy        else None, s1, l1)
+    render_signal("📈 Tasa de interés real EE.UU.", "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo", f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
+    render_signal("😰 VIX — Miedo en los mercados", "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro",                    f"{vix:.2f}"          if vix        else None, s3, l3)
+    render_signal("🔥 Inflación esperada EE.UU.",  "qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección", f"{breakeven:.2f}%"   if breakeven  else None, s4, l4)
 
 st.divider()
 
@@ -347,19 +348,52 @@ else:
     st.info("Sin datos históricos disponibles.")
 
 # ── GUÍA ──────────────────────────────────────────────────────────────────────
-with st.expander("📖 Guía de interpretación de señales"):
+with st.expander("📖 ¿Qué significa cada cosa? Guía rápida"):
     st.markdown("""
-| Indicador | Zona alcista para oro | Zona bajista |
-|---|---|---|
-| DXY (Índice dólar)    | < 98 (dólar débil)    | > 104 (dólar fuerte) |
-| Yield real 10Y        | < 0.5%                 | > 1.5%               |
-| VIX (volatilidad)     | > 25 (pánico mercado) | < 15                 |
-| Breakeven inflación   | > 2.5%                 | < 2.0%               |
+### 🎯 El Indicador de 0 a 100
+Resume en un solo número qué tan favorables están las condiciones macro para que el oro **suba**:
+- **0–25 (rojo):** Todo apunta a que el oro puede bajar
+- **25–50 (naranja):** Condiciones desfavorables pero no extremas
+- **50–75 (verde claro):** Condiciones favorables para el oro
+- **75–100 (verde):** Todo apunta a que el oro puede subir
 
-El **gauge** combina: DXY 30% · Yield real 30% · VIX 20% · Inflación 20%.
+---
 
-**Fuente del oro:** Twelve Data entrega XAU/USD spot real — equivalente a TVC:GOLD en TradingView.
-**Optimización de requests:** refresca cada 2 min con mercado abierto, cada 30 min con mercado cerrado.
+### 💵 DXY — Fuerza del dólar estadounidense
+Mide qué tan fuerte está el dólar frente a otras monedas.
+- **Dólar fuerte (DXY > 104):** el oro tiende a bajar, porque se encarece para compradores de otros países
+- **Dólar débil (DXY < 98):** el oro tiende a subir
+
+---
+
+### 📈 Tasa de interés real EE.UU.
+Es el rendimiento que pagan los bonos del gobierno de EE.UU., **ya descontando la inflación**.
+- Si es alta (> 1.5%): los inversores prefieren bonos seguros que sí pagan intereses → el oro pierde atractivo
+- Si es baja o negativa (< 0.5%): el oro se vuelve más atractivo porque "no pagar intereses ya no importa tanto"
+
+---
+
+### 😰 VIX — Miedo del mercado global
+Mide el nivel de nerviosismo o pánico en los mercados financieros mundiales.
+- **VIX alto (> 25):** hay miedo, los inversores buscan refugio → compran oro → precio sube
+- **VIX bajo (< 15):** mercados tranquilos, poca demanda de refugio
+
+---
+
+### 🔥 Inflación esperada EE.UU. (próximos 10 años)
+Lo que los mercados esperan que sea la inflación en EE.UU. en la próxima década.
+- **Alta (> 2.5%):** el oro es el refugio clásico contra la inflación → precio sube
+- **Baja (< 2%):** menos urgencia de protegerse → menor demanda de oro
+
+---
+
+### ⚖️ Pesos del indicador general
+| Factor | Peso |
+|---|---|
+| Fuerza del dólar (DXY)        | 30% |
+| Tasa de interés real EE.UU.   | 30% |
+| Miedo del mercado (VIX)       | 20% |
+| Inflación esperada EE.UU.     | 20% |
     """)
 
 with st.expander("📊 Uso de API (Twelve Data)"):
