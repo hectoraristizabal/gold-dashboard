@@ -100,21 +100,43 @@ def get_gold_price_twelvedata():
         pass
     return None
 
-@st.cache_data(ttl=300)
-def get_gold_history_twelvedata(days=12):
+# Configuración de periodos del gráfico
+CHART_PERIODS = {
+    "1D":     {"interval": "5min",  "outputsize": 180, "label": "Hoy — cada 5 min",         "fmt": "%H:%M",  "ttl": 60},
+    "5D":     {"interval": "2h",    "outputsize": 60,  "label": "5 días — cada 2 horas",     "fmt": "%m/%d %H:%M", "ttl": 120},
+    "1M":     {"interval": "4h",    "outputsize": 180, "label": "30 días — cada 4 horas",    "fmt": "%m/%d",  "ttl": 300},
+    "3M":     {"interval": "1day",  "outputsize": 90,  "label": "3 meses — cada día",        "fmt": "%m/%d",  "ttl": 300},
+    "YTD":    {"interval": "1day",  "outputsize": 365, "label": "Año en curso — cada día",   "fmt": "%m/%d",  "ttl": 300},
+}
+
+@st.cache_data(ttl=60)
+def get_gold_history_period(period="3M"):
+    cfg = CHART_PERIODS.get(period, CHART_PERIODS["3M"])
+    interval   = cfg["interval"]
+    outputsize = cfg["outputsize"]
+    fmt        = cfg["fmt"]
     try:
         r = requests.get(
-            f"https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1day"
-            f"&outputsize={days}&apikey={TWELVE_DATA_KEY}",
-            timeout=12
+            f"https://api.twelvedata.com/time_series?symbol=XAU/USD"
+            f"&interval={interval}&outputsize={outputsize}&apikey={TWELVE_DATA_KEY}",
+            timeout=15
         )
         if r.status_code == 200:
             d = r.json()
             if d.get("values"):
                 results = []
+                # Para YTD filtrar solo desde 1 enero del año actual
+                year_start = datetime(datetime.now().year, 1, 1)
                 for v in reversed(d["values"]):
-                    dt = datetime.strptime(v["datetime"], "%Y-%m-%d")
-                    results.append({"date": dt.strftime("%m/%d"), "price": float(v["close"])})
+                    try:
+                        # Twelve Data devuelve "YYYY-MM-DD" para 1day, "YYYY-MM-DD HH:MM:SS" para intraday
+                        raw = v["datetime"]
+                        dt  = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S") if " " in raw else datetime.strptime(raw, "%Y-%m-%d")
+                        if period == "YTD" and dt < year_start:
+                            continue
+                        results.append({"date": dt.strftime(fmt), "price": float(v["close"]), "dt": dt})
+                    except:
+                        pass
                 return results, "Twelve Data"
     except:
         pass
@@ -351,7 +373,6 @@ st.divider()
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
 with st.spinner("Cargando datos del mercado..."):
     gold_data          = get_gold_price_twelvedata()
-    history, hist_src  = get_gold_history_twelvedata(12)
     dxy,  _            = get_fred_value("DTWEXBGS")
     yield10y, _        = get_fred_value("DGS10")
     breakeven, _       = get_fred_value("T10YIE")
@@ -469,13 +490,38 @@ with col_s:
 
 st.divider()
 
-# ── HISTÓRICO ─────────────────────────────────────────────────────────────────
-st.markdown(f"**Precio del oro — últimos 12 días hábiles (USD/oz)** · *{hist_src}*")
+# ── HISTÓRICO CON SELECTOR DE PERIODO ────────────────────────────────────────
+st.markdown("**Precio del oro (USD/oz) — selecciona el período**")
+
+# Botones de periodo
+col_p1, col_p2, col_p3, col_p4, col_p5, col_rest = st.columns([1,1,1,1,1,5])
+period_map = {"1D": col_p1, "5D": col_p2, "1M": col_p3, "3M": col_p4, "YTD": col_p5}
+
+if "chart_period" not in st.session_state:
+    st.session_state.chart_period = "3M"
+
+for period, col in period_map.items():
+    with col:
+        label = period
+        if st.button(label, key=f"btn_{period}",
+                     type="primary" if st.session_state.chart_period == period else "secondary",
+                     use_container_width=True):
+            st.session_state.chart_period = period
+            st.rerun()
+
+selected = st.session_state.chart_period
+cfg = CHART_PERIODS[selected]
+
+with st.spinner(f"Cargando {cfg['label']}..."):
+    history, hist_src = get_gold_history_period(selected)
+
+st.caption(f"{cfg['label']} · Fuente: {hist_src}")
+
 fig = make_price_chart(history)
 if fig:
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 else:
-    st.info("Sin datos históricos disponibles.")
+    st.info("Sin datos para este período. Intenta con otro rango o espera unos segundos.")
 
 # ── GUÍA ──────────────────────────────────────────────────────────────────────
 with st.expander("📖 ¿Qué significa cada cosa? Guía rápida"):
