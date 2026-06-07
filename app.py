@@ -439,6 +439,15 @@ with col_g:
     score = calc_score(dxy, real_yield, vix, breakeven)
     st.plotly_chart(make_gauge(score), use_container_width=True, config={"displayModeBar":False})
 
+    st.markdown("""
+<div style="font-size:12px;line-height:2;margin-top:-8px;">
+<span style="color:#A32D2D">&#9632; <b>0&#8211;25:</b> Todo apunta a bajada del oro</span><br>
+<span style="color:#C87800">&#9632; <b>25&#8211;50:</b> Condiciones desfavorables</span><br>
+<span style="color:#5a8a00">&#9632; <b>50&#8211;75:</b> Condiciones favorables</span><br>
+<span style="color:#3B6D11">&#9632; <b>75&#8211;100:</b> Todo apunta a subida del oro</span>
+</div>
+""", unsafe_allow_html=True)
+
 with col_s:
     st.markdown("**¿Qué dice cada indicador?**")
     st.caption("Cada uno influye en el precio del oro de diferente forma. Verde = favorece subida · Rojo = favorece bajada · Naranja = neutral")
@@ -471,15 +480,6 @@ else:
 # ── GUÍA ──────────────────────────────────────────────────────────────────────
 with st.expander("📖 ¿Qué significa cada cosa? Guía rápida"):
     st.markdown("""
-### 🎯 El Indicador de 0 a 100
-Resume en un solo número qué tan favorables están las condiciones macro para que el oro **suba**:
-- **0–25 (rojo):** Todo apunta a que el oro puede bajar
-- **25–50 (naranja):** Condiciones desfavorables pero no extremas
-- **50–75 (verde claro):** Condiciones favorables para el oro
-- **75–100 (verde):** Todo apunta a que el oro puede subir
-
----
-
 ### 💵 DXY — Fuerza del dólar estadounidense
 Mide qué tan fuerte está el dólar frente a otras monedas.
 - **Dólar fuerte (DXY > 104):** el oro tiende a bajar, porque se encarece para compradores de otros países
