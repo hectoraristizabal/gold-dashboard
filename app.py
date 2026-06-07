@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 import pytz
 import time
 
+TROY_OZ_GRAMS = 31.1035  # 1 onza troy = 31.1035 gramos
+
 st.set_page_config(
     page_title="Gold Macro Dashboard",
     page_icon="🥇",
@@ -363,7 +365,8 @@ gold_price  = gold_data["price"]    if gold_data    else None
 real_yield  = round(yield10y - breakeven, 2) if (yield10y and breakeven) else None
 brent_price = brent_data["price"]  if brent_data  else None
 usdcop      = usdcop_data["price"] if usdcop_data else None
-gold_cop    = round(gold_price * usdcop) if (gold_price and usdcop) else None
+gold_usd_gram = round(gold_price / TROY_OZ_GRAMS, 2) if gold_price else None
+gold_cop_gram = round((gold_price * usdcop) / TROY_OZ_GRAMS) if (gold_price and usdcop) else None
 
 # ── MÉTRICAS ──────────────────────────────────────────────────────────────────
 c1,c2,c3,c4,c5,c6 = st.columns(6)
@@ -375,6 +378,8 @@ with c1:
         st.caption(gold_data.get("source","—"))
         if gold_data.get("high") and gold_data.get("low"):
             st.caption(f"H: ${gold_data['high']:,.2f}  ·  L: ${gold_data['low']:,.2f}")
+        if gold_usd_gram:
+            st.caption(f"📌 Por gramo: ${gold_usd_gram:,.2f} USD/g")
     else:
         st.metric("🥇 Oro XAU/USD", "Sin dato")
         st.caption("Twelve Data no respondió")
@@ -418,8 +423,8 @@ with c6:
         c_chp = usdcop_data.get("change_pct")
         delta_cop = f"{c_ch:+.2f} ({c_chp:+.2f}%)" if (c_ch is not None and c_chp is not None) else None
         st.metric("🇨🇴 USD/COP", f"{usdcop:,.1f}", delta=delta_cop)
-        if gold_cop:
-            st.caption(f"Oro hoy: ${gold_cop:,} COP/oz")
+        if gold_cop_gram:
+            st.caption(f"📌 Oro hoy: {gold_cop_gram:,} COP/g")
     else:
         st.metric("🇨🇴 USD/COP", "Sin dato")
 
