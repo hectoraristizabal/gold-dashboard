@@ -72,10 +72,10 @@ def get_gold_price():
     except:
         pass
 
-    # 3) Yahoo Finance XAU=X
+    # 3) Yahoo Finance XAU=X (spot oro — equivalente a TVC:GOLD)
     try:
         r = requests.get(
-            "https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1d&range=2d",
+            "https://query1.finance.yahoo.com/v8/finance/chart/XAU%3DX?interval=1d&range=2d",
             headers=HEADERS_BROWSER, timeout=10
         )
         if r.status_code == 200:
@@ -90,7 +90,7 @@ def get_gold_price():
                         "open": meta.get("regularMarketOpen"),
                         "high": meta.get("regularMarketDayHigh"),
                         "low":  meta.get("regularMarketDayLow"),
-                        "prev_close": prev, "source": "Yahoo Finance (GC=F)"}
+                        "prev_close": prev, "source": "Yahoo Finance (XAU=X spot)"}
     except:
         pass
 
@@ -112,10 +112,10 @@ def get_gold_price():
 @st.cache_data(ttl=60)
 def get_gold_history(days=10):
     results = []
-    # Intentar Yahoo Finance GC=F (futuros oro) — más confiable
+    # Yahoo Finance XAU=X (spot oro — equivalente a TVC:GOLD)
     try:
         r = requests.get(
-            "https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1d&range=20d",
+            "https://query1.finance.yahoo.com/v8/finance/chart/XAU%3DX?interval=1d&range=20d",
             headers=HEADERS_BROWSER, timeout=10
         )
         if r.status_code == 200:
@@ -126,7 +126,7 @@ def get_gold_history(days=10):
             for ts, price in pairs:
                 dt = datetime.fromtimestamp(ts)
                 results.append({"date": dt.strftime("%m/%d"), "price": round(price, 2)})
-            return results, "Yahoo Finance (GC=F)"
+            return results, "Yahoo Finance (XAU=X spot)"
     except:
         pass
 
@@ -369,7 +369,7 @@ with st.expander("🔌 Estado de fuentes de datos", expanded=not gold_price):
 **¿Por qué el oro aparece Sin dato?**
 Gold-API a veces bloquea el IP de Streamlit Cloud. Soluciones:
 1. Obtén una FRED API key gratis en [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) y agrégala en Secrets como `FRED_API_KEY`
-2. El sistema ya intenta Yahoo Finance (GC=F futuros) como alternativa automática
+2. El sistema ya intenta Yahoo Finance (XAU=X spot) como alternativa automática
         """)
 
 # ── MÉTRICAS ──────────────────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ with c1:
         st.caption(f"Fuente: {gold_data.get('source','—')}")
     else:
         st.metric("🥇 Oro XAU/USD", "Sin dato")
-        st.caption("Intentando Yahoo Finance GC=F...")
+        st.caption("Intentando Yahoo Finance XAU=X spot...")
 
 with c2:
     if dxy:
