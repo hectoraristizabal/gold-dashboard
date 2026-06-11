@@ -388,7 +388,7 @@ with st.spinner("Cargando datos del mercado..."):
     dxy = get_yahoo_quote("DX-Y.NYB")
     if dxy is None: dxy, _ = get_fred_value("DTWEXBGS")
 
-    # Yield 10Y: Yahoo Finance ^TNX (tiempo real), FRED como fallback
+    # Yield 10Y nominal: Yahoo Finance ^TNX (tiempo real), FRED como fallback
     yield10y = get_yahoo_quote("%5ETNX")
     if yield10y is None: yield10y, _ = get_fred_value("DGS10")
     else: yield10y = round(yield10y, 2)
@@ -397,13 +397,23 @@ with st.spinner("Cargando datos del mercado..."):
     vix = get_yahoo_quote("%5EVIX")
     if vix is None: vix, _ = get_fred_value("VIXCLS")
 
-    # Breakeven inflación: solo FRED (no hay fuente Yahoo equivalente)
-    breakeven, be_date = get_fred_value("T10YIE")
+    # Breakeven inflación: calculado como Yield nominal (^TNX) - Yield real TIPS (DFII10)
+    # T10YIE de FRED está congelado desde abril 2026, por eso lo calculamos manualmente
+    # DFII10 (yield real TIPS) sí está actualizado en FRED
+    tips_real, tips_date = get_fred_value("DFII10")
+    if yield10y is not None and tips_real is not None:
+        breakeven = round(yield10y - tips_real, 2)
+        be_date   = tips_date
+    else:
+        # Fallback: intentar T10YIE directo de FRED (aunque esté desactualizado)
+        breakeven, be_date = get_fred_value("T10YIE")
     brent_data = get_brent_price()
     usdcop_data = get_usdcop()
 
 gold_price  = gold_data["price"]    if gold_data    else None
-real_yield  = round(yield10y - breakeven, 2) if (yield10y and breakeven) else None
+# Yield real: usamos DFII10 directamente (es el yield real TIPS por definición)
+# Si no está disponible, calculamos como yield nominal - breakeven
+real_yield = round(tips_real, 2) if tips_real is not None else (round(yield10y - breakeven, 2) if (yield10y and breakeven) else None)
 brent_price = brent_data["price"]  if brent_data  else None
 usdcop      = usdcop_data["price"] if usdcop_data else None
 gold_usd_gram = round(gold_price / TROY_OZ_GRAMS, 2) if gold_price else None
