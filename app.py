@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import requests
 import pandas as pd
 import plotly.graph_objects as go
@@ -15,6 +16,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# ── AUTO-REFRESH ──────────────────────────────────────────────────────────────
+# Mercado abierto: cada 2 min (120,000 ms) · Mercado cerrado: cada 30 min (1,800,000 ms)
+# st_autorefresh recarga la página automáticamente sin congelar la app
+_market_open_check = True  # se recalcula abajo con la función real
+try:
+    import pytz as _pytz
+    from datetime import datetime as _dt
+    _et = _pytz.timezone("America/New_York")
+    _now = _dt.now(_pytz.utc).astimezone(_et)
+    _wd, _h = _now.weekday(), _now.hour + _now.minute / 60
+    _market_open_check = not (_wd == 5 or (_wd == 6 and _h < 18) or (_wd == 4 and _h >= 17))
+except:
+    pass
+_refresh_ms = 120_000 if _market_open_check else 1_800_000
+st_autorefresh(interval=_refresh_ms, key="gold_autorefresh")
 
 # ── API Keys ──────────────────────────────────────────────────────────────────
 TWELVE_DATA_KEY = st.secrets.get("TWELVE_DATA_KEY", "f589353e36df44e498cbb5e847f30015")
@@ -711,8 +728,4 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── Auto-refresh inteligente con st.rerun() nativo ───────────────────────────
-# time.sleep() pausa la ejecución y luego st.rerun() fuerza recarga completa
-# Esto es más confiable que JavaScript en Streamlit Cloud
-time.sleep(refresh_seg)
-st.rerun()
+# Auto-refresh ya fue configurado al inicio del script
