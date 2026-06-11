@@ -400,6 +400,13 @@ with st.expander("📡 Frecuencia de actualización de cada indicador", expanded
     """)
 
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
+# ── AUTO-REFRESH AL ABRIR LA PÁGINA ──────────────────────────────────────────
+# Si es la primera vez que se carga esta sesión, limpiar caché para traer datos frescos
+# Así al abrir el dashboard siempre se ven datos actualizados, no el caché anterior
+if "session_initialized" not in st.session_state:
+    st.cache_data.clear()
+    st.session_state["session_initialized"] = True
+
 tips_real = None  # yield real TIPS (DFII10)
 be_date   = None
 
@@ -704,8 +711,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── Auto-refresh inteligente ──────────────────────────────────────────────────
-st.markdown(
-    f"<script>setTimeout(()=>window.location.reload(),{refresh_seg * 1000});</script>",
-    unsafe_allow_html=True
-)
+# ── Auto-refresh inteligente con st.rerun() nativo ───────────────────────────
+# time.sleep() pausa la ejecución y luego st.rerun() fuerza recarga completa
+# Esto es más confiable que JavaScript en Streamlit Cloud
+time.sleep(refresh_seg)
+st.rerun()
