@@ -389,16 +389,33 @@ with st.spinner("Cargando datos del mercado..."):
     gold_data          = get_gold_price_twelvedata()
     # DXY: Yahoo Finance primero (tiempo real), FRED como fallback
     dxy = get_yahoo_quote("DX-Y.NYB")
-    if dxy is None: dxy, _ = get_fred_value("DTWEXBGS")
+    dxy_source = "Yahoo Finance · tiempo real" if dxy is not None else None
+    if dxy is None:
+        dxy, dxy_date = get_fred_value("DTWEXBGS")
+        dxy_source = f"FRED · actualiza semanalmente · dato: {dxy_date}" if dxy else None
+    else:
+        dxy_date = now_colombia().strftime("%Y-%m-%d %H:%M")
 
     # Yield 10Y nominal: Yahoo Finance ^TNX (tiempo real), FRED como fallback
     yield10y = get_yahoo_quote("%5ETNX")
-    if yield10y is None: yield10y, _ = get_fred_value("DGS10")
-    else: yield10y = round(yield10y, 2)
+    yield_source = "Yahoo Finance · tiempo real" if yield10y is not None else None
+    if yield10y is None:
+        yield10y, yield_date = get_fred_value("DGS10")
+        yield_source = f"FRED · actualiza diariamente · dato: {yield_date}" if yield10y else None
+        yield10y = round(yield10y, 2) if yield10y else None
+    else:
+        yield10y = round(yield10y, 2)
+        yield_date = now_colombia().strftime("%Y-%m-%d %H:%M")
 
     # VIX: Yahoo Finance primero (tiempo real), FRED como fallback
     vix = get_yahoo_quote("%5EVIX")
-    if vix is None: vix, _ = get_fred_value("VIXCLS")
+    vix_source = "Yahoo Finance · tiempo real" if vix is not None else None
+    if vix is None:
+        vix, vix_date = get_fred_value("VIXCLS")
+        vix_source = f"FRED · actualiza diariamente · dato: {vix_date}" if vix else None
+        vix_date = vix_date
+    else:
+        vix_date = now_colombia().strftime("%Y-%m-%d %H:%M")
 
     # Breakeven inflación: calculado como Yield nominal (^TNX) - Yield real TIPS (DFII10)
     # T10YIE de FRED está congelado desde abril 2026, por eso lo calculamos manualmente
@@ -511,16 +528,20 @@ with col_s:
     s2,l2 = get_signal("real_yield", real_yield)
     s3,l3 = get_signal("vix",        vix)
     s4,l4 = get_signal("breakeven",  breakeven)
-    render_signal("💵 DXY — Fuerza del dólar",    "cuando el dólar sube, el oro baja (y viceversa)",   f"{dxy:.2f}"          if dxy        else None, s1, l1)
-    render_signal("📈 Tasa de interés real EE.UU.", "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo", f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
-    render_signal("😰 VIX — Miedo en los mercados", "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro",                    f"{vix:.2f}"          if vix        else None, s3, l3)
+    dxy_info = f"cuando el dólar sube, el oro baja (y viceversa) · {dxy_source}" if dxy_source else "cuando el dólar sube, el oro baja (y viceversa)"
+    render_signal("💵 DXY — Fuerza del dólar", dxy_info, f"{dxy:.2f}" if dxy else None, s1, l1)
+    yield_info = f"rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo · {yield_source}" if yield_source else "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo"
+    render_signal("📈 Tasa de interés real EE.UU.", yield_info, f"{real_yield:.2f}%" if real_yield else None, s2, l2)
+    vix_info = f"mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro · {vix_source}" if vix_source else "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro"
+    render_signal("😰 VIX — Miedo en los mercados", vix_info, f"{vix:.2f}" if vix else None, s3, l3)
     be_label = f"{breakeven:.2f}%" if breakeven else None
     be_date_txt = f" · dato: {be_date}" if (breakeven and be_date) else ""
     # Fórmula visible: Yield nominal - Yield real TIPS = Breakeven
     if breakeven and yield10y and tips_real:
-        be_formula = f"Cómo se calcula: {yield10y:.2f}% (bono 10Y) − {tips_real:.2f}% (bono protegido inflación) = {breakeven:.2f}%{be_date_txt}"
+        be_formula = (f"Cómo se calcula: {yield10y:.2f}% (bono 10Y) − {tips_real:.2f}% (bono protegido inflación) = {breakeven:.2f}%{be_date_txt}. "
+                      f"Más inflación esperada = más demanda de oro como protección")
     else:
-        be_formula = f"qué tan alta espera el mercado que sea la inflación en los próximos 10 años{be_date_txt}"
+        be_formula = f"qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección{be_date_txt}"
     render_signal("🔥 Inflación esperada EE.UU.", be_formula, be_label, s4, l4)
 
     st.markdown("---")
