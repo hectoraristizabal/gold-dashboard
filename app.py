@@ -314,13 +314,43 @@ def get_signal(ind, val):
         return ("bullish","Inflación alta → alcista") if val>2.5 else ("neutral","Inflación moderada") if val>2.0 else ("bearish","Inflación baja")
     return "neutral","—"
 
+def _clamp(val, mn, mx):
+    """Limita un valor entre mn y mx."""
+    return max(mn, min(mx, val))
+
 def calc_score(dxy, ry, vix, be):
-    s,t = 0,0
-    if dxy is not None: t+=30; s+=30 if dxy<98 else 15 if dxy<104 else 0
-    if ry  is not None: t+=30; s+=30 if ry<0.5  else 15 if ry<1.5   else 0
-    if vix is not None: t+=20; s+=20 if vix>25   else 10 if vix>15   else 0
-    if be  is not None: t+=20; s+=20 if be>2.5   else 10 if be>2.0   else 0
-    return round(s/t*100) if t>0 else 50
+    """
+    Score gradual 0-100. Cada indicador aporta puntos de forma continua,
+    no en escalones fijos — así el gauge se mueve con cada pequeño cambio.
+
+    DXY  (peso 30): rango 94–108  → 30 pts si dxy=94, 0 pts si dxy=108
+    Yield real (peso 30): rango -0.5–3.0 → 30 pts si ry=-0.5, 0 pts si ry=3.0
+    VIX  (peso 20): rango 10–40   → 0 pts si vix=10, 20 pts si vix=40
+    BE   (peso 20): rango 1.5–3.5 → 0 pts si be=1.5, 20 pts si be=3.5
+    """
+    s, t = 0, 0
+
+    if dxy is not None:
+        t += 30
+        # DXY bajo = alcista. 94→30pts, 108→0pts (lineal)
+        s += _clamp(30 * (108 - dxy) / (108 - 94), 0, 30)
+
+    if ry is not None:
+        t += 30
+        # Yield real bajo = alcista. -0.5→30pts, 3.0→0pts (lineal)
+        s += _clamp(30 * (3.0 - ry) / (3.0 - (-0.5)), 0, 30)
+
+    if vix is not None:
+        t += 20
+        # VIX alto = alcista (refugio). 10→0pts, 40→20pts (lineal)
+        s += _clamp(20 * (vix - 10) / (40 - 10), 0, 20)
+
+    if be is not None:
+        t += 20
+        # Breakeven alto = alcista. 1.5→0pts, 3.5→20pts (lineal)
+        s += _clamp(20 * (be - 1.5) / (3.5 - 1.5), 0, 20)
+
+    return round(s / t * 100) if t > 0 else 50
 
 def render_signal(name, desc, val_str, sig, label):
     st.markdown(f"""
