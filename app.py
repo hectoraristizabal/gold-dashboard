@@ -31,7 +31,16 @@ try:
 except:
     pass
 _refresh_ms = 120_000 if _market_open_check else 1_800_000
+_refresh_sec = 120 if _market_open_check else 1800
+
+# Doble mecanismo de auto-refresco:
+# 1) st_autorefresh (Streamlit nativo)
+# 2) Meta HTTP-equiv como respaldo (funciona aunque la pestaña esté inactiva)
 st_autorefresh(interval=_refresh_ms, key="gold_autorefresh")
+st.markdown(
+    f'<meta http-equiv="refresh" content="{_refresh_sec}">',
+    unsafe_allow_html=True
+)
 
 # ── API Keys ──────────────────────────────────────────────────────────────────
 TWELVE_DATA_KEY = st.secrets.get("TWELVE_DATA_KEY", "f589353e36df44e498cbb5e847f30015")
