@@ -382,6 +382,9 @@ with col_ts:
 st.divider()
 
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
+tips_real = None  # yield real TIPS (DFII10)
+be_date   = None
+
 with st.spinner("Cargando datos del mercado..."):
     gold_data          = get_gold_price_twelvedata()
     # DXY: Yahoo Finance primero (tiempo real), FRED como fallback
@@ -608,6 +611,28 @@ Cuántos pesos colombianos vale 1 dólar estadounidense.
 | Miedo del mercado (VIX)       | 20% |
 | Inflación esperada EE.UU.     | 20% |
     """)
+
+with st.expander("🔧 Diagnóstico de fuentes de datos", expanded=False):
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        st.markdown("**Valores cargados esta sesión:**")
+        st.write({
+            "DXY": dxy,
+            "Yield 10Y (^TNX)": yield10y,
+            "TIPS real (DFII10)": tips_real if "tips_real" in dir() else "—",
+            "Breakeven calculado": breakeven,
+            "Fecha breakeven": be_date,
+            "VIX": vix,
+        })
+    with col_d2:
+        st.markdown("**Yield real mostrado:**")
+        st.write({
+            "real_yield": real_yield,
+            "Score gauge": calc_score(dxy, real_yield, vix, breakeven),
+        })
+        if st.button("🗑 Limpiar caché ahora"):
+            st.cache_data.clear()
+            st.rerun()
 
 with st.expander("📊 Uso de API (Twelve Data)"):
     try:
