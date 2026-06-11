@@ -515,8 +515,13 @@ with col_s:
     render_signal("📈 Tasa de interés real EE.UU.", "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo", f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
     render_signal("😰 VIX — Miedo en los mercados", "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro",                    f"{vix:.2f}"          if vix        else None, s3, l3)
     be_label = f"{breakeven:.2f}%" if breakeven else None
-    be_date_txt = f" (dato: {be_date})" if (breakeven and be_date) else ""
-    render_signal("🔥 Inflación esperada EE.UU.",  f"qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección{be_date_txt}", be_label, s4, l4)
+    be_date_txt = f" · dato: {be_date}" if (breakeven and be_date) else ""
+    # Fórmula visible: Yield nominal - Yield real TIPS = Breakeven
+    if breakeven and yield10y and tips_real:
+        be_formula = f"Cómo se calcula: {yield10y:.2f}% (bono 10Y) − {tips_real:.2f}% (bono protegido inflación) = {breakeven:.2f}%{be_date_txt}"
+    else:
+        be_formula = f"qué tan alta espera el mercado que sea la inflación en los próximos 10 años{be_date_txt}"
+    render_signal("🔥 Inflación esperada EE.UU.", be_formula, be_label, s4, l4)
 
     st.markdown("---")
     st.markdown("**🛢 Petróleo Brent vs Oro**")
