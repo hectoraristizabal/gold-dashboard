@@ -384,12 +384,21 @@ st.divider()
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
 with st.spinner("Cargando datos del mercado..."):
     gold_data          = get_gold_price_twelvedata()
-    dxy,  _            = get_fred_value("DTWEXBGS")
-    yield10y, _        = get_fred_value("DGS10")
-    breakeven, _       = get_fred_value("T10YIE")
-    vix,  _            = get_fred_value("VIXCLS")
-    if dxy is None:  dxy = get_yahoo_quote("DX-Y.NYB")
-    if vix is None:  vix = get_yahoo_quote("%5EVIX")
+    # DXY: Yahoo Finance primero (tiempo real), FRED como fallback
+    dxy = get_yahoo_quote("DX-Y.NYB")
+    if dxy is None: dxy, _ = get_fred_value("DTWEXBGS")
+
+    # Yield 10Y: Yahoo Finance ^TNX (tiempo real), FRED como fallback
+    yield10y = get_yahoo_quote("%5ETNX")
+    if yield10y is None: yield10y, _ = get_fred_value("DGS10")
+    else: yield10y = round(yield10y, 2)
+
+    # VIX: Yahoo Finance primero (tiempo real), FRED como fallback
+    vix = get_yahoo_quote("%5EVIX")
+    if vix is None: vix, _ = get_fred_value("VIXCLS")
+
+    # Breakeven inflación: solo FRED (no hay fuente Yahoo equivalente)
+    breakeven, be_date = get_fred_value("T10YIE")
     brent_data = get_brent_price()
     usdcop_data = get_usdcop()
 
@@ -426,9 +435,11 @@ with c2:
 with c3:
     if real_yield is not None:
         st.metric("📈 Tasa interés real EE.UU.", f"{real_yield:.2f}%",
-                  delta=f"Tasa nominal {yield10y:.2f}% · Inflación esperada {breakeven:.2f}%", delta_color="off")
+                  delta=f"Nominal {yield10y:.2f}% · BE {breakeven:.2f}%", delta_color="off")
+        if be_date:
+            st.caption(f"Breakeven dato: {be_date}")
     elif yield10y:
-        st.metric("📈 Tasa interés real EE.UU.", f"{yield10y:.2f}%", delta="Inflación esperada no disponible", delta_color="off")
+        st.metric("📈 Tasa interés real EE.UU.", f"{yield10y:.2f}%", delta="Breakeven no disponible", delta_color="off")
     else:
         st.metric("📈 Tasa interés real EE.UU.", "Sin dato")
 
@@ -490,7 +501,9 @@ with col_s:
     render_signal("💵 DXY — Fuerza del dólar",    "cuando el dólar sube, el oro baja (y viceversa)",   f"{dxy:.2f}"          if dxy        else None, s1, l1)
     render_signal("📈 Tasa de interés real EE.UU.", "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo", f"{real_yield:.2f}%"  if real_yield else None, s2, l2)
     render_signal("😰 VIX — Miedo en los mercados", "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro",                    f"{vix:.2f}"          if vix        else None, s3, l3)
-    render_signal("🔥 Inflación esperada EE.UU.",  "qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección", f"{breakeven:.2f}%"   if breakeven  else None, s4, l4)
+    be_label = f"{breakeven:.2f}%" if breakeven else None
+    be_date_txt = f" (dato: {be_date})" if (breakeven and be_date) else ""
+    render_signal("🔥 Inflación esperada EE.UU.",  f"qué tan alta espera el mercado que sea la inflación en los próximos 10 años. Más inflación = más demanda de oro como protección{be_date_txt}", be_label, s4, l4)
 
     st.markdown("---")
     st.markdown("**🛢 Petróleo Brent vs Oro**")
