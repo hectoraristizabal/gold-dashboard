@@ -381,6 +381,24 @@ with col_ts:
 
 st.divider()
 
+
+# ── TABLA DE FUENTES Y FRECUENCIAS ───────────────────────────────────────────
+with st.expander("📡 Frecuencia de actualización de cada indicador", expanded=False):
+    st.markdown("""
+| Indicador | Fuente | Actualiza cada | Horario |
+|---|---|---|---|
+| 🥇 Oro XAU/USD | Twelve Data | Tiempo real | Dom 6pm – Vie 5pm ET |
+| 💵 DXY | Yahoo Finance | **15 min** (diferido) | Dom 6pm – Vie 5pm ET |
+| 📈 Yield 10Y / Tasa real | Yahoo Finance | **15 min** (diferido) | Lun–Vie 9:30am–4pm ET |
+| 😰 VIX | Yahoo Finance | **15 min** (diferido) | Lun–Vie 9:30am–4pm ET |
+| 🔥 Inflación esperada | FRED (Reserva Federal) | **1 vez al día** | Días hábiles EE.UU. ~3pm ET |
+| 🛢 Brent — Petróleo | Twelve Data / Yahoo | **15 min** (diferido) | Dom 11pm – Vie 9pm ET |
+| 🇨🇴 USD/COP | Yahoo Finance | **15 min** (diferido) | Lun–Vie horario forex |
+
+> ⚠️ Yahoo Finance gratuito entrega datos con **15 minutos de retraso** en todos sus símbolos.  
+> La **Inflación esperada** es el único dato que solo cambia una vez al día — lo publica la Reserva Federal de EE.UU.
+    """)
+
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
 tips_real = None  # yield real TIPS (DFII10)
 be_date   = None
@@ -528,11 +546,11 @@ with col_s:
     s2,l2 = get_signal("real_yield", real_yield)
     s3,l3 = get_signal("vix",        vix)
     s4,l4 = get_signal("breakeven",  breakeven)
-    dxy_info = f"cuando el dólar sube, el oro baja (y viceversa) · {dxy_source}" if dxy_source else "cuando el dólar sube, el oro baja (y viceversa)"
+    dxy_info = f"cuando el dólar sube, el oro baja · 15 min de retraso · último dato: {dxy_date}" if dxy else "cuando el dólar sube, el oro baja (y viceversa)"
     render_signal("💵 DXY — Fuerza del dólar", dxy_info, f"{dxy:.2f}" if dxy else None, s1, l1)
-    yield_info = f"rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo · {yield_source}" if yield_source else "rentabilidad de bonos del Tesoro ya descontando inflación. Si es alta, el oro pierde atractivo"
+    yield_info = f"rentabilidad de bonos del Tesoro descontando inflación. Si es alta, el oro pierde atractivo · 15 min de retraso · último dato: {yield_date}" if yield10y else "rentabilidad de bonos del Tesoro ya descontando inflación"
     render_signal("📈 Tasa de interés real EE.UU.", yield_info, f"{real_yield:.2f}%" if real_yield else None, s2, l2)
-    vix_info = f"mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro · {vix_source}" if vix_source else "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro"
+    vix_info = f"mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro · 15 min de retraso · último dato: {vix_date}" if vix else "mide el nerviosismo global. Cuando hay pánico, los inversores huyen al oro"
     render_signal("😰 VIX — Miedo en los mercados", vix_info, f"{vix:.2f}" if vix else None, s3, l3)
     be_label = f"{breakeven:.2f}%" if breakeven else None
     be_date_txt = f" · dato: {be_date}" if (breakeven and be_date) else ""
